@@ -1,6 +1,7 @@
 import streamlit as st
 from datetime import date
 from setlistfm import get_most_recent_setlist, search_artists
+from ticketmaster import get_lineup
 
 st.set_page_config(page_title="SetlistMaker", page_icon="🎸", layout="centered")
 
@@ -15,6 +16,8 @@ except (KeyError, FileNotFoundError):
     st.error("**Missing API key.** Add `SETLISTFM_API_KEY` to your Streamlit secrets.")
     st.stop()
 
+tm_key: str | None = st.secrets.get("TICKETMASTER_API_KEY")
+
 # ─── Step 1: Event details ────────────────────────────────────────────────────
 
 st.subheader("Event details")
@@ -23,11 +26,31 @@ col1, col2 = st.columns([2, 1])
 event_venue = col1.text_input("Venue", placeholder="Madison Square Garden, New York")
 event_date = col2.date_input("Event date", value=date.today())
 
-# Session state for bands textarea (supports "Did you mean?" correction flow)
+# Session state for bands textarea (supports lineup pre-fill + "Did you mean?" corrections)
 if "lineup_version" not in st.session_state:
     st.session_state["lineup_version"] = 0
 if "bands_default" not in st.session_state:
     st.session_state["bands_default"] = ""
+
+if tm_key:
+    headliner = st.text_input("Headliner", placeholder="Metallica")
+    if st.button("Find Lineup →", disabled=not headliner.strip()):
+        with st.spinner(f"Looking up lineup for {headliner}…"):
+            try:
+                lineup = get_lineup(headliner.strip(), event_date.strftime("%Y-%m-%d"), tm_key)
+            except RuntimeError as e:
+                lineup = None
+                st.warning(str(e))
+
+        if lineup:
+            st.session_state["bands_default"] = "\n".join(lineup)
+            st.session_state["lineup_version"] += 1
+            st.success(
+                f"Found **{len(lineup)} act(s)** for {headliner} "
+                f"on {event_date.strftime('%b %d %Y')}. Edit below if needed."
+            )
+        else:
+            st.info("No lineup found on Ticketmaster for that date. Enter bands manually.")
 
 # Bands textarea — pre-filled when a lineup is found, always editable
 bands_raw = st.text_area(

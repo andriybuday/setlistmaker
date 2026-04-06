@@ -213,9 +213,9 @@ if st.button("Generate Gemini Prompt →", type="primary", disabled=total == 0):
         "3. Paste the text below and send it",
         icon="ℹ️",
     )
-    st.code(prompt, language=None)
     components.html(
         f"""
+        <style>body{{margin:0;padding:0}}</style>
         <button
             onclick="navigator.clipboard.writeText({json.dumps(prompt)}).then(()=>{{
                 this.textContent='✅ Copied!';
@@ -227,5 +227,7 @@ if st.button("Generate Gemini Prompt →", type="primary", disabled=total == 0):
             📋 Copy prompt
         </button>
         """,
-        height=60,
+        height=52,
     )
+    with st.expander("Show full prompt"):
+        st.code(prompt, language=None)

@@ -53,6 +53,7 @@ if tm_key:
         if result:
             st.session_state["bands_default"] = "\n".join(result["lineup"])
             st.session_state["venue_default"] = result["venue"]
+            st.session_state["tour_name"] = result.get("tour_name", "")
             st.session_state["lineup_version"] += 1
             st.success(
                 f"Found **{len(result['lineup'])} act(s)** for {headliner} "
@@ -172,9 +173,21 @@ bands_with_songs = sum(1 for s in selected.values() if s)
 st.caption(f"**{total} songs** selected across **{bands_with_songs}** band(s)")
 
 if st.button("Generate Gemini Prompt →", type="primary", disabled=total == 0):
-    event_name = st.session_state["event_name"] or "Tonight's Show"
     event_date_str = st.session_state["event_date_str"]
-    playlist_title = f"{event_name} — {event_date_str}"
+    year = event_date_str[:4]
+    tour_name = st.session_state.get("tour_name", "")
+
+    # "Band A & Band B" or "Band A, Band B & Band C"
+    band_list = [b for b in bands if selected.get(b)]
+    if len(band_list) <= 2:
+        bands_str = " & ".join(band_list)
+    else:
+        bands_str = ", ".join(band_list[:-1]) + " & " + band_list[-1]
+
+    if tour_name:
+        playlist_title = f"{tour_name} — {bands_str} {year}"
+    else:
+        playlist_title = f"{bands_str} {year}"
 
     lines = [
         f'Create a YouTube Music playlist called "{playlist_title}" '

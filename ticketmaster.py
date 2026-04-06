@@ -65,6 +65,14 @@ def get_lineup(artist_name: str, event_date: str, api_key: str) -> Optional[dict
         else:
             lineup = names  # couldn't identify headliner, return as-is
 
-        return {"lineup": lineup, "venue": venue_str}
+        # Extract tour name from event name by stripping artist prefix
+        event_name = event.get("name", "")
+        tour_name = ""
+        for sep in (": ", " - "):
+            if event_name.lower().startswith(artist_name.lower() + sep):
+                tour_name = event_name[len(artist_name) + len(sep):]
+                break
+
+        return {"lineup": lineup, "venue": venue_str, "tour_name": tour_name}
 
     return None

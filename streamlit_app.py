@@ -1,4 +1,6 @@
+import json
 import streamlit as st
+import streamlit.components.v1 as components
 from datetime import date
 from setlistfm import get_most_recent_setlist, search_artists
 from ticketmaster import get_lineup
@@ -55,10 +57,7 @@ if tm_key:
             st.session_state["venue_default"] = result["venue"]
             st.session_state["tour_name"] = result.get("tour_name", "")
             st.session_state["lineup_version"] += 1
-            st.success(
-                f"Found **{len(result['lineup'])} act(s)** for {headliner} "
-                f"on {event_date.strftime('%b %d %Y')}. Edit below if needed."
-            )
+            st.rerun()
         else:
             st.info("No lineup found on Ticketmaster for that date. Enter bands manually.")
 
@@ -215,3 +214,18 @@ if st.button("Generate Gemini Prompt →", type="primary", disabled=total == 0):
         icon="ℹ️",
     )
     st.code(prompt, language=None)
+    components.html(
+        f"""
+        <button
+            onclick="navigator.clipboard.writeText({json.dumps(prompt)}).then(()=>{{
+                this.textContent='✅ Copied!';
+                setTimeout(()=>this.textContent='📋 Copy prompt',2000);
+            }})"
+            style="width:100%;padding:14px;font-size:16px;font-weight:600;
+                   background:#ff4b4b;color:white;border:none;border-radius:8px;
+                   cursor:pointer;">
+            📋 Copy prompt
+        </button>
+        """,
+        height=60,
+    )

@@ -5,12 +5,13 @@ from typing import Optional
 TICKETMASTER_BASE = "https://app.ticketmaster.com/discovery/v2"
 
 
-def get_lineup(artist_name: str, event_date: str, api_key: str) -> Optional[list[str]]:
+def get_lineup(artist_name: str, event_date: str, api_key: str) -> Optional[dict]:
     """
     Find the lineup for an artist's show on event_date via Ticketmaster Discovery API.
 
     event_date: YYYY-MM-DD
-    Returns band names with support acts first, headliner last. None if not found.
+    Returns {"lineup": [...], "venue": "Venue Name, City"} with support acts first,
+    headliner last. Returns None if not found.
     """
     target = datetime.strptime(event_date, "%Y-%m-%d")
     start = (target - timedelta(days=1)).strftime("%Y-%m-%dT00:00:00Z")
@@ -47,12 +48,23 @@ def get_lineup(artist_name: str, event_date: str, api_key: str) -> Optional[list
         if not names:
             continue
 
+        # Build venue string from first venue in the event
+        venue_data = (event.get("_embedded", {}).get("venues") or [{}])[0]
+        venue_parts = [
+            venue_data.get("name", ""),
+            venue_data.get("city", {}).get("name", ""),
+            venue_data.get("state", {}).get("name", ""),
+        ]
+        venue_str = ", ".join(p for p in venue_parts if p)
+
         # Ticketmaster lists headliner first — move the searched artist to last
         artist_lower = artist_name.lower()
         headliner = next((n for n in names if n.lower() == artist_lower), None)
         if headliner:
-            others = [n for n in names if n.lower() != artist_lower]
-            return others + [headliner]
-        return names  # couldn't identify headliner, return as-is
+            lineup = [n for n in names if n.lower() != artist_lower] + [headliner]
+        else:
+            lineup = names  # couldn't identify headliner, return as-is
+
+        return {"lineup": lineup, "venue": venue_str}
 
     return None

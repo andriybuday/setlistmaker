@@ -210,10 +210,9 @@ if st.button("Generate Gemini Prompt & Copy →", type="primary", disabled=total
 
     # Auto-copy using hidden textarea + execCommand (works without user gesture)
     components.html(
-        f"<textarea id='p' style='position:fixed;top:-9999px;opacity:0'>"
-        f"{html.escape(prompt)}</textarea>"
-        f"<script>var e=document.getElementById('p');e.select();"
-        f"document.execCommand('copy');</script>",
+        f"<div id='p' data-text='{html.escape(prompt, quote=True)}'></div>"
+        f"<script>navigator.clipboard.writeText("
+        f"document.getElementById('p').dataset.text);</script>",
         height=0,
     )
 

@@ -1,14 +1,13 @@
 import streamlit as st
 from datetime import date
 from setlistfm import get_most_recent_setlist, search_artists
-from bandsintown import get_lineup
 
 st.set_page_config(page_title="SetlistMaker", page_icon="🎸", layout="centered")
 
 st.title("🎸 SetlistMaker")
 st.caption("Look up tonight's setlists and generate a YouTube Music playlist via Gemini.")
 
-# ─── API keys ─────────────────────────────────────────────────────────────────
+# ─── API key ──────────────────────────────────────────────────────────────────
 
 try:
     setlistfm_key = st.secrets["SETLISTFM_API_KEY"]
@@ -16,55 +15,19 @@ except (KeyError, FileNotFoundError):
     st.error("**Missing API key.** Add `SETLISTFM_API_KEY` to your Streamlit secrets.")
     st.stop()
 
-bit_key: str | None = st.secrets.get("BANDSINTOWN_APP_ID")
-
 # ─── Step 1: Event details ────────────────────────────────────────────────────
 
 st.subheader("Event details")
 
 col1, col2 = st.columns([2, 1])
-headliner = col1.text_input("Headliner", placeholder="Metallica")
+event_venue = col1.text_input("Venue", placeholder="Madison Square Garden, New York")
 event_date = col2.date_input("Event date", value=date.today())
-event_venue = st.text_input("Venue", placeholder="Madison Square Garden, New York")
 
-# Session state for lineup pre-fill
+# Session state for bands textarea (supports "Did you mean?" correction flow)
 if "lineup_version" not in st.session_state:
     st.session_state["lineup_version"] = 0
 if "bands_default" not in st.session_state:
     st.session_state["bands_default"] = ""
-if "lineup_msg" not in st.session_state:
-    st.session_state["lineup_msg"] = None  # (type, text) tuple
-
-# "Find Lineup" button — only shown when BandsInTown is configured
-if bit_key:
-    if st.button("Find Lineup →", disabled=not headliner.strip()):
-        with st.spinner(f"Looking up lineup for {headliner}…"):
-            try:
-                lineup = get_lineup(headliner.strip(), event_date.strftime("%Y-%m-%d"), bit_key)
-            except RuntimeError as e:
-                lineup = None
-                st.session_state["lineup_msg"] = ("warning", str(e))
-
-        if lineup:
-            st.session_state["bands_default"] = "\n".join(lineup)
-            st.session_state["lineup_version"] += 1
-            st.session_state["lineup_msg"] = (
-                "success",
-                f"Found **{len(lineup)} act(s)** for {headliner} on {event_date.strftime('%b %d %Y')}. "
-                "Edit below if needed.",
-            )
-        else:
-            st.session_state["lineup_msg"] = (
-                "info",
-                "No lineup found on BandsInTown for that date. Enter bands manually.",
-            )
-
-    msg = st.session_state["lineup_msg"]
-    if msg:
-        kind, text = msg
-        {"success": st.success, "info": st.info, "warning": st.warning}[kind](text)
-else:
-    st.caption("💡 Add `BANDSINTOWN_APP_ID` to secrets to enable automatic lineup lookup.")
 
 # Bands textarea — pre-filled when a lineup is found, always editable
 bands_raw = st.text_area(

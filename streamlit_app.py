@@ -177,7 +177,7 @@ total = sum(len(s) for s in selected.values())
 bands_with_songs = sum(1 for s in selected.values() if s)
 st.caption(f"**{total} songs** selected across **{bands_with_songs}** band(s)")
 
-if st.button("Generate Gemini Prompt & Copy →", type="primary", disabled=total == 0):
+if st.button("Generate Gemini Prompt →", type="primary", disabled=total == 0):
     event_date_str = st.session_state["event_date_str"]
     year = event_date_str[:4]
     tour_name = st.session_state.get("tour_name", "")
@@ -208,16 +208,7 @@ if st.button("Generate Gemini Prompt & Copy →", type="primary", disabled=total
 
     prompt = "\n".join(lines).strip()
 
-    # Auto-copy using hidden textarea + execCommand (works without user gesture)
-    components.html(
-        f"<div id='p' data-text='{html.escape(prompt, quote=True)}'></div>"
-        f"<script>navigator.clipboard.writeText("
-        f"document.getElementById('p').dataset.text);</script>",
-        height=0,
-    )
-
     st.subheader("Your Gemini prompt")
-    st.success("✅ Prompt copied to clipboard!")
     st.info(
         "1. Open [gemini.google.com](https://gemini.google.com)  \n"
         "2. Make sure **YouTube Music extension** is enabled "
@@ -225,5 +216,21 @@ if st.button("Generate Gemini Prompt & Copy →", type="primary", disabled=total
         "3. Paste the text below and send it",
         icon="ℹ️",
     )
+    # Copy button inside components.html so the click IS the user gesture
+    components.html(
+        "<style>body{margin:0;padding:0}</style>"
+        "<button "
+        f"data-text='{html.escape(prompt, quote=True)}' "
+        "onclick=\"navigator.clipboard.writeText(this.dataset.text);"
+        "this.textContent='✅ Copied!';"
+        "setTimeout(()=>this.textContent='📋 Copy prompt',2000)\" "
+        "style='width:100%;padding:14px;font-size:16px;font-weight:600;"
+        "background:#ff4b4b;color:white;border:none;border-radius:8px;cursor:pointer'>"
+        "📋 Copy prompt"
+        "</button>",
+        height=52,
+    )
+    with st.expander("Show full prompt"):
+        st.code(prompt, language=None)
     with st.expander("Show full prompt"):
         st.code(prompt, language=None)

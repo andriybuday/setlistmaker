@@ -149,8 +149,8 @@ for band in bands:
         )
 
         band_songs = []
-        for song in data["songs"]:
-            if st.checkbox(song, value=True, key=f"check_{band}_{song}"):
+        for i, song in enumerate(data["songs"]):
+            if st.checkbox(song, value=True, key=f"check_{band}_{i}_{song}"):
                 band_songs.append(song)
         selected[band] = band_songs
 

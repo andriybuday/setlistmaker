@@ -195,19 +195,16 @@ if st.button("Generate Gemini Prompt & Copy →", type="primary", disabled=total
         playlist_title = f"{bands_str} {year}"
 
     lines = [
-        f'Create a YouTube Music playlist called "{playlist_title}" '
-        f"with the following songs in this exact order:\n"
+        f'Using the YouTube Music extension, create a new playlist called '
+        f'"{playlist_title}" and add these songs in exact order they appear here:\n'
     ]
 
+    n = 1
     for band in bands:
         songs = selected.get(band, [])
-        if not songs:
-            continue
-        role = "Headliner" if band == bands[-1] else "Support"
-        lines.append(f"— {role}: {band} —")
-        for i, song in enumerate(songs, 1):
-            lines.append(f"{i}. {band} - {song}")
-        lines.append("")
+        for song in songs:
+            lines.append(f"{n}. {band} - {song}")
+            n += 1
 
     prompt = "\n".join(lines).strip()
 

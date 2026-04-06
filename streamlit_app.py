@@ -232,5 +232,3 @@ if st.button("Generate Gemini Prompt →", type="primary", disabled=total == 0):
     )
     with st.expander("Show full prompt"):
         st.code(prompt, language=None)
-    with st.expander("Show full prompt"):
-        st.code(prompt, language=None)

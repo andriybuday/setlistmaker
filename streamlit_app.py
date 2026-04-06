@@ -1,4 +1,5 @@
 import html
+import time
 import streamlit as st
 import streamlit.components.v1 as components
 from datetime import date
@@ -90,11 +91,16 @@ if fetch_btn:
     suggestions: dict[str, list[str]] = {}
     for i, band in enumerate(bands):
         progress.progress((i + 1) / len(bands), text=f"Looking up {band}…")
-        try:
-            results[band] = get_most_recent_setlist(band, date_str, setlistfm_key)
-        except RuntimeError as e:
-            st.error(str(e))
-            st.stop()
+        for attempt in range(2):
+            try:
+                results[band] = get_most_recent_setlist(band, date_str, setlistfm_key)
+                break
+            except RuntimeError as e:
+                if attempt == 0:
+                    time.sleep(0.2)
+                else:
+                    st.error(str(e))
+                    st.stop()
         if results[band] is None:
             suggestions[band] = search_artists(band, setlistfm_key)
     progress.empty()

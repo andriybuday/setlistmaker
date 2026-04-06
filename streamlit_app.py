@@ -1,43 +1,90 @@
 import streamlit as st
 from datetime import date
 from setlistfm import get_most_recent_setlist
+from bandsintown import get_lineup
 
 st.set_page_config(page_title="SetlistMaker", page_icon="🎸", layout="centered")
 
 st.title("🎸 SetlistMaker")
 st.caption("Look up tonight's setlists and generate a YouTube Music playlist via Gemini.")
 
-# --- API key from Streamlit secrets ---
+# ─── API keys ─────────────────────────────────────────────────────────────────
+
 try:
-    api_key = st.secrets["SETLISTFM_API_KEY"]
+    setlistfm_key = st.secrets["SETLISTFM_API_KEY"]
 except (KeyError, FileNotFoundError):
     st.error("**Missing API key.** Add `SETLISTFM_API_KEY` to your Streamlit secrets.")
     st.stop()
+
+bit_key: str | None = st.secrets.get("BANDSINTOWN_APP_ID")
 
 # ─── Step 1: Event details ────────────────────────────────────────────────────
 
 st.subheader("Event details")
 
-with st.form("event_form"):
-    event_name = st.text_input(
-        "Event / venue name",
-        placeholder="The Crocodile, Seattle",
-    )
-    event_date = st.date_input("Event date", value=date.today())
-    bands_raw = st.text_area(
-        "Bands — one per line, in playing order (support acts first, headliner last)",
-        placeholder="Infected Rain\nLacuna Coil",
-        height=130,
-    )
-    submitted = st.form_submit_button("Fetch Setlists →", type="primary")
+col1, col2 = st.columns([2, 1])
+headliner = col1.text_input("Headliner", placeholder="Metallica")
+event_date = col2.date_input("Event date", value=date.today())
+event_venue = st.text_input("Venue", placeholder="Madison Square Garden, New York")
 
-if submitted:
+# Session state for lineup pre-fill
+if "lineup_version" not in st.session_state:
+    st.session_state["lineup_version"] = 0
+if "bands_default" not in st.session_state:
+    st.session_state["bands_default"] = ""
+if "lineup_msg" not in st.session_state:
+    st.session_state["lineup_msg"] = None  # (type, text) tuple
+
+# "Find Lineup" button — only shown when BandsInTown is configured
+if bit_key:
+    if st.button("Find Lineup →", disabled=not headliner.strip()):
+        with st.spinner(f"Looking up lineup for {headliner}…"):
+            try:
+                lineup = get_lineup(headliner.strip(), event_date.strftime("%Y-%m-%d"), bit_key)
+            except RuntimeError as e:
+                lineup = None
+                st.session_state["lineup_msg"] = ("warning", str(e))
+
+        if lineup:
+            st.session_state["bands_default"] = "\n".join(lineup)
+            st.session_state["lineup_version"] += 1
+            st.session_state["lineup_msg"] = (
+                "success",
+                f"Found **{len(lineup)} act(s)** for {headliner} on {event_date.strftime('%b %d %Y')}. "
+                "Edit below if needed.",
+            )
+        else:
+            st.session_state["lineup_msg"] = (
+                "info",
+                "No lineup found on BandsInTown for that date. Enter bands manually.",
+            )
+
+    msg = st.session_state["lineup_msg"]
+    if msg:
+        kind, text = msg
+        {"success": st.success, "info": st.info, "warning": st.warning}[kind](text)
+else:
+    st.caption("💡 Add `BANDSINTOWN_APP_ID` to secrets to enable automatic lineup lookup.")
+
+# Bands textarea — pre-filled when a lineup is found, always editable
+bands_raw = st.text_area(
+    "Bands — one per line, support acts first, headliner last",
+    value=st.session_state["bands_default"],
+    key=f"bands_raw_{st.session_state['lineup_version']}",
+    placeholder="Mammoth WVH\nMetallica",
+    height=130,
+)
+
+fetch_btn = st.button(
+    "Fetch Setlists →",
+    type="primary",
+    disabled=not bands_raw.strip(),
+)
+
+if fetch_btn:
     bands = [b.strip() for b in bands_raw.strip().splitlines() if b.strip()]
-    if not bands:
-        st.warning("Enter at least one band.")
-        st.stop()
 
-    # Clear any previous run
+    # Clear previous results
     for key in ["setlists", "bands", "event_name", "event_date_str"]:
         st.session_state.pop(key, None)
 
@@ -48,7 +95,7 @@ if submitted:
     for i, band in enumerate(bands):
         progress.progress((i + 1) / len(bands), text=f"Looking up {band}…")
         try:
-            results[band] = get_most_recent_setlist(band, date_str, api_key)
+            results[band] = get_most_recent_setlist(band, date_str, setlistfm_key)
         except RuntimeError as e:
             st.error(str(e))
             st.stop()
@@ -56,7 +103,7 @@ if submitted:
 
     st.session_state["setlists"] = results
     st.session_state["bands"] = bands
-    st.session_state["event_name"] = event_name
+    st.session_state["event_name"] = event_venue
     st.session_state["event_date_str"] = date_str
 
 # ─── Step 2: Review & edit setlists ──────────────────────────────────────────
@@ -79,8 +126,10 @@ for band in bands:
 
     with st.expander(header, expanded=True):
         if data is None:
-            st.warning(f"No setlist found for **{band}** before {st.session_state['event_date_str']}. "
-                       "They may not have played recently or setlist.fm has no data.")
+            st.warning(
+                f"No setlist found for **{band}** before {st.session_state['event_date_str']}. "
+                "They may not have played recently or setlist.fm has no data."
+            )
             selected[band] = []
             continue
 
@@ -93,8 +142,7 @@ for band in bands:
 
         band_songs = []
         for song in data["songs"]:
-            key = f"check_{band}_{song}"
-            if st.checkbox(song, value=True, key=key):
+            if st.checkbox(song, value=True, key=f"check_{band}_{song}"):
                 band_songs.append(song)
         selected[band] = band_songs
 

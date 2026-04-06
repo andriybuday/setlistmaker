@@ -195,8 +195,8 @@ if st.button("Generate Gemini Prompt →", type="primary", disabled=total == 0):
         playlist_title = f"{bands_str} {year}"
 
     lines = [
-        f'Using the YouTube Music extension, create a new playlist called '
-        f'"{playlist_title}" and add these songs in exact order they appear here:\n'
+        f"Using the YouTube Music extension, create a personal playlist called "
+        f"'{playlist_title}' and add these songs in this exact order:\n"
     ]
 
     n = 1

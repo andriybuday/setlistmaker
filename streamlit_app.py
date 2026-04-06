@@ -1,6 +1,6 @@
 import streamlit as st
 from datetime import date
-from setlistfm import get_most_recent_setlist
+from setlistfm import get_most_recent_setlist, search_artists
 from bandsintown import get_lineup
 
 st.set_page_config(page_title="SetlistMaker", page_icon="🎸", layout="centered")
@@ -92,6 +92,7 @@ if fetch_btn:
     results = {}
 
     progress = st.progress(0, text="Fetching setlists…")
+    suggestions: dict[str, list[str]] = {}
     for i, band in enumerate(bands):
         progress.progress((i + 1) / len(bands), text=f"Looking up {band}…")
         try:
@@ -99,9 +100,12 @@ if fetch_btn:
         except RuntimeError as e:
             st.error(str(e))
             st.stop()
+        if results[band] is None:
+            suggestions[band] = search_artists(band, setlistfm_key)
     progress.empty()
 
     st.session_state["setlists"] = results
+    st.session_state["suggestions"] = suggestions
     st.session_state["bands"] = bands
     st.session_state["event_name"] = event_venue
     st.session_state["event_date_str"] = date_str
@@ -126,10 +130,28 @@ for band in bands:
 
     with st.expander(header, expanded=True):
         if data is None:
-            st.warning(
-                f"No setlist found for **{band}** before {st.session_state['event_date_str']}. "
-                "They may not have played recently or setlist.fm has no data."
-            )
+            band_suggestions = st.session_state.get("suggestions", {}).get(band, [])
+            if band_suggestions:
+                st.warning(f"No setlist found for **{band}**. Did you mean one of these?")
+                for suggestion in band_suggestions:
+                    if st.button(f'Use "{suggestion}"', key=f"suggest_{band}_{suggestion}"):
+                        current = st.session_state.get("bands_default") or "\n".join(
+                            st.session_state["bands"]
+                        )
+                        corrected = [
+                            suggestion if b.strip() == band else b
+                            for b in current.splitlines()
+                        ]
+                        st.session_state["bands_default"] = "\n".join(corrected)
+                        st.session_state["lineup_version"] += 1
+                        for k in ["setlists", "suggestions", "bands", "event_name", "event_date_str"]:
+                            st.session_state.pop(k, None)
+                        st.rerun()
+            else:
+                st.warning(
+                    f"No setlist found for **{band}** before {st.session_state['event_date_str']}. "
+                    "They may not have played recently or setlist.fm has no data."
+                )
             selected[band] = []
             continue
 

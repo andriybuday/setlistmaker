@@ -27,6 +27,28 @@ def _extract_songs(setlist: dict) -> list[str]:
     return songs
 
 
+def search_artists(name: str, api_key: str, limit: int = 3) -> list[str]:
+    """
+    Return up to `limit` artist name suggestions from setlist.fm for a given query.
+    Useful for surfacing the correct name when a typo returns no setlist.
+    """
+    try:
+        resp = requests.get(
+            f"{SETLISTFM_BASE}/search/artists",
+            params={"artistName": name, "p": 1, "sort": "relevance"},
+            headers=_headers(api_key),
+            timeout=10,
+        )
+    except requests.RequestException:
+        return []
+
+    if not resp.ok:
+        return []
+
+    artists = resp.json().get("artist", [])
+    return [a["name"] for a in artists[:limit] if "name" in a]
+
+
 def get_most_recent_setlist(
     artist_name: str, before_date: str, api_key: str
 ) -> Optional[dict]:
